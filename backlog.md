@@ -1,0 +1,7 @@
+- Use Lucide for icons (lucide-react-native)
+- Smart hints. Build a logic so that the person learns while playing. Create a catalog of sudoku techniques.
+- Score feature
+- Streak feature
+- Functionality to create sudokus ad-hoc
+- Use impeccable to improve UI
+- Check sudoku app for new features (In settings)

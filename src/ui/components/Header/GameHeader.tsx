@@ -1,0 +1,93 @@
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { Difficulty } from '../../../domain/types';
+import { useTheme } from '../../theme/ThemeProvider';
+
+interface Props {
+  difficulty: Difficulty;
+  mistakes: number;
+  maxMistakes: number;
+  elapsed: number;
+  paused: boolean;
+  fastMode: boolean;
+  onBack: () => void;
+  onTogglePause: () => void;
+  onToggleFastMode: () => void;
+}
+
+function formatTime(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+const LABELS: Record<Difficulty, string> = {
+  easy: 'Easy',
+  medium: 'Medium',
+  hard: 'Hard',
+  expert: 'Expert',
+  extreme: 'Extreme',
+};
+
+export function GameHeader({
+  difficulty,
+  mistakes,
+  maxMistakes,
+  elapsed,
+  paused,
+  fastMode,
+  onBack,
+  onTogglePause,
+  onToggleFastMode,
+}: Props) {
+  const theme = useTheme();
+  const c = theme.colors;
+  return (
+    <View style={styles.container}>
+      <View style={styles.topRow}>
+        <Pressable onPress={onBack} hitSlop={10}>
+          <Text style={[styles.back, { color: c.text }]}>←</Text>
+        </Pressable>
+        <Pressable
+          onPress={onToggleFastMode}
+          style={[
+            styles.fastToggle,
+            { backgroundColor: fastMode ? c.primary : c.highlight },
+          ]}
+        >
+          <Text style={{ color: fastMode ? '#FFF' : c.textMuted, fontWeight: '700' }}>
+            ⚡
+          </Text>
+        </Pressable>
+      </View>
+      <View style={styles.statsRow}>
+        <Text style={[styles.stat, { color: c.textMuted }]}>
+          Mistakes: {mistakes}
+          {maxMistakes > 0 ? `/${maxMistakes}` : ''}
+        </Text>
+        <Text style={[styles.stat, { color: c.textMuted }]}>{LABELS[difficulty]}</Text>
+        <Pressable onPress={onTogglePause} style={styles.timer}>
+          <Text style={[styles.stat, { color: c.textMuted }]}>
+            {formatTime(elapsed)} {paused ? '▶' : '❚❚'}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { paddingHorizontal: 16, paddingTop: 8, gap: 8 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  back: { fontSize: 26 },
+  fastToggle: {
+    width: 40,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  stat: { fontSize: 15 },
+  timer: { flexDirection: 'row', alignItems: 'center' },
+});
