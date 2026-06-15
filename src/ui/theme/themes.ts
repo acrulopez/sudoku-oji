@@ -41,7 +41,7 @@ const light: Theme = {
     background: '#F2F3F7',
     surface: '#FFFFFF',
     text: '#1A1A1A',
-    textMuted: '#8A8F98',
+    textMuted: '#686D78',
     primary: '#2F6BFF',
     highlight: '#E8EBF2',
     sameValue: '#D5DEF7',
@@ -83,7 +83,7 @@ const forest: Theme = {
     background: '#F1F5F0',
     surface: '#FFFFFF',
     text: '#1C2B1E',
-    textMuted: '#7C8A7E',
+    textMuted: '#5C6B5E',
     primary: '#2E7D4F',
     highlight: '#E4EEE4',
     sameValue: '#CDE6D2',
@@ -92,7 +92,7 @@ const forest: Theme = {
     error: '#D9534F',
     gridLine: '#CDD8CC',
     gridLineBold: '#5E6E60',
-    note: '#6E7D70',
+    note: '#586656',
   },
 };
 
@@ -104,7 +104,7 @@ const sunset: Theme = {
     background: '#FFF4ED',
     surface: '#FFFFFF',
     text: '#3A2417',
-    textMuted: '#A38B7C',
+    textMuted: '#80654F',
     primary: '#E8703A',
     highlight: '#FDE7DA',
     sameValue: '#FBD3BD',
@@ -113,7 +113,7 @@ const sunset: Theme = {
     error: '#D9433D',
     gridLine: '#F0D9CA',
     gridLineBold: '#A6705A',
-    note: '#9C7C6B',
+    note: '#7A5E4D',
   },
 };
 
