@@ -47,6 +47,7 @@ describe('game serialization', () => {
       history,
       elapsed: 42,
       mistakes: 2,
+      hintsUsed: 1,
     });
 
     // survives a JSON boundary (as it would through MMKV)
@@ -55,6 +56,7 @@ describe('game serialization', () => {
     expect(restored.board[0].value).toBe(7);
     expect(restored.elapsed).toBe(42);
     expect(restored.mistakes).toBe(2);
+    expect(restored.hintsUsed).toBe(1);
     expect(restored.history.past).toHaveLength(2);
     // notes restored as a Set
     const someNoted = restored.board.find((c) => c.notes.size > 0);

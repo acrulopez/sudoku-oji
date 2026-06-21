@@ -17,6 +17,8 @@ export interface SavedGame {
   /** Elapsed seconds. */
   elapsed: number;
   mistakes: number;
+  /** Smart hints opened this game (informational). Absent on older saves. */
+  hintsUsed?: number;
   /** Serialized undo history (opaque to the repository). */
   history: unknown;
   updatedAt: number;

@@ -77,6 +77,7 @@ export interface GameSnapshot {
   history: History;
   elapsed: number;
   mistakes: number;
+  hintsUsed: number;
 }
 
 export function serializeGame(snap: GameSnapshot): SavedGame {
@@ -88,6 +89,7 @@ export function serializeGame(snap: GameSnapshot): SavedGame {
     notes: notesToMap(snap.board),
     elapsed: snap.elapsed,
     mistakes: snap.mistakes,
+    hintsUsed: snap.hintsUsed,
     history: serializeHistory(snap.history),
     updatedAt: Date.now(),
   };
@@ -116,5 +118,6 @@ export function deserializeGame(saved: SavedGame): GameSnapshot {
     history: deserializeHistory(saved.history),
     elapsed: saved.elapsed,
     mistakes: saved.mistakes,
+    hintsUsed: saved.hintsUsed ?? 0,
   };
 }

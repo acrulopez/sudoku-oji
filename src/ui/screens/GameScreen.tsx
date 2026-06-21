@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { canUndo as historyCanUndo } from '../../domain/history';
+import { findHint } from '../../domain/hints';
 import { useGameStore } from '../../state/gameStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { computeMistakes, remainingCounts } from '../../state/selectors';
@@ -14,6 +15,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { Board } from '../components/Board/Board';
 import { Controls } from '../components/Controls/Controls';
 import { GameHeader } from '../components/Header/GameHeader';
+import { HintSheet } from '../components/Hint/HintSheet';
 import { NumberPad } from '../components/NumberPad/NumberPad';
 
 export function GameScreen() {
@@ -30,6 +32,13 @@ export function GameScreen() {
   const mistakes = useMemo(
     () => computeMistakes(s.board, s.puzzle?.solution ?? ''),
     [s.board, s.puzzle],
+  );
+
+  // Whether a supported technique applies right now — drives the Hint button's
+  // enabled state. Recomputed per move; findHint is cheap.
+  const hintAvailable = useMemo(
+    () => s.status === 'playing' && findHint(s.board) !== null,
+    [s.board, s.status],
   );
 
   // Vibrate when the mistake count climbs (a wrong value was just placed).
@@ -80,8 +89,11 @@ export function GameScreen() {
         maxMistakes={maxMistakes}
         elapsed={s.elapsed}
         paused={paused}
+        hintsUsed={s.hintsUsed}
+        hintAvailable={hintAvailable && !s.hint}
         onBack={() => router.replace('/')}
         onTogglePause={() => s.setPaused(!paused)}
+        onHint={s.requestHint}
       />
 
       <View style={styles.boardWrap}>
@@ -104,6 +116,7 @@ export function GameScreen() {
             fastMode={s.fastMode}
             flashCells={s.flashCells}
             reduceMotion={reduceMotion}
+            hintAnnotations={s.hint ? s.hint.steps[s.hintStep].annotations : undefined}
             onCellPress={s.selectCell}
           />
         )}
@@ -174,6 +187,26 @@ export function GameScreen() {
       </View>
 
       <View style={styles.spacer} />
+
+      {s.hint && (
+        <>
+          <Pressable
+            style={styles.scrim}
+            onPress={s.closeHint}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss hint"
+          />
+          <HintSheet
+            hint={s.hint}
+            step={s.hintStep}
+            reduceMotion={reduceMotion}
+            onNext={s.nextHintStep}
+            onPrev={s.prevHintStep}
+            onApply={s.applyHint}
+            onClose={s.closeHint}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -212,4 +245,12 @@ const styles = StyleSheet.create({
   },
   btnSecondaryText: { fontSize: 16, fontWeight: '600' },
   spacer: { flex: 1 },
+  scrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
 });

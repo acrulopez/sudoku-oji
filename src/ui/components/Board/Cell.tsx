@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { DIGITS } from '../../../domain/types';
 import type { Cell as CellModel, CellIndex, Digit } from '../../../domain/types';
+import type { CellAnnotation } from '../../../domain/hints';
 import { colOf, rowOf } from '../../../domain/board';
 import { useTheme } from '../../theme/ThemeProvider';
 
@@ -27,6 +28,8 @@ interface Props {
   flashNonce: number;
   /** OS "Reduce Motion" is on — skip the blink, lean on the static marker. */
   reduceMotion: boolean;
+  /** Smart Hint annotation: tint / "×" mark / ghost answer for this cell. */
+  annotation?: CellAnnotation;
   onPress: (index: CellIndex) => void;
 }
 
@@ -41,6 +44,7 @@ function CellComponent({
   mistake,
   flashNonce,
   reduceMotion,
+  annotation,
   onPress,
 }: Props) {
   const theme = useTheme();
@@ -54,6 +58,10 @@ function CellComponent({
   if (inPeer) background = c.highlight;
   if (selected) background = c.selected;
   if (mistake) background = c.errorBg;
+  // Smart Hint tints take precedence so the walkthrough reads cleanly.
+  if (annotation?.tint === 'unit') background = c.highlight;
+  if (annotation?.tint === 'target') background = c.sameValue;
+  if (annotation?.tint === 'focus') background = c.selected;
 
   // Bold separators between 3x3 boxes.
   const borderStyle = {
@@ -67,13 +75,14 @@ function CellComponent({
     borderBottomColor: c.gridLineBold,
   };
 
-  const valueColor = selected
-    ? '#FFFFFF'
-    : mistake
-      ? c.error
-      : cell.given
-        ? c.text
-        : c.userValue;
+  const valueColor =
+    selected || annotation?.tint === 'focus'
+      ? '#FFFFFF'
+      : mistake
+        ? c.error
+        : cell.given
+          ? c.text
+          : c.userValue;
 
   // Blink the value red twice (~1s) when flagged as a conflict culprit. Skipped
   // under Reduce Motion — the corner marker carries the error statically.
@@ -115,13 +124,24 @@ function CellComponent({
           importantForAccessibility="no"
         />
       )}
-      {cell.value !== null ? (
+      {annotation?.cross && cell.value === null ? (
+        <Text style={[styles.cross, { color: c.textMuted }]} accessibilityLabel="cannot place here">
+          ×
+        </Text>
+      ) : annotation?.ghost && cell.value === null ? (
+        <Text style={[styles.value, styles.ghost, { color: c.primary }]} accessibilityLabel={`answer ${annotation.ghost}`}>
+          {annotation.ghost}
+        </Text>
+      ) : cell.value !== null ? (
         <Animated.Text style={[styles.value, valueAnim]}>{cell.value}</Animated.Text>
       ) : cell.notes.size > 0 ? (
         <View style={styles.notes}>
           {DIGITS.map((d) => {
             const has = cell.notes.has(d);
             const activeNote = has && d === activeValue;
+            // Smart Hint candidate-level emphasis (only set during a hint).
+            const struck = has && !!annotation?.strikeNotes?.includes(d);
+            const highlit = has && !!annotation?.highlightNotes?.includes(d);
             return (
               <View key={d} style={styles.noteSlot}>
                 {fastMode && activeNote ? (
@@ -132,13 +152,16 @@ function CellComponent({
                   <Text
                     style={[
                       styles.note,
-                      activeNote && styles.noteActive,
+                      (activeNote || highlit) && styles.noteActive,
+                      struck && styles.noteStruck,
                       {
-                        color: activeNote
-                          ? c.primary
-                          : selected
-                            ? 'rgba(255,255,255,0.85)'
-                            : c.note,
+                        color: struck
+                          ? c.error
+                          : highlit || activeNote
+                            ? c.primary
+                            : selected
+                              ? 'rgba(255,255,255,0.85)'
+                              : c.note,
                         opacity: has ? 1 : 0,
                       },
                     ]}
@@ -187,6 +210,8 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
   },
   value: { fontSize: 26, fontWeight: '400' },
+  ghost: { opacity: 0.45 },
+  cross: { fontSize: 22, fontWeight: '500' },
   notes: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -202,6 +227,7 @@ const styles = StyleSheet.create({
   },
   note: { fontSize: 9, textAlign: 'center' },
   noteActive: { fontWeight: '800' },
+  noteStruck: { fontWeight: '800', textDecorationLine: 'line-through' },
   noteBadge: {
     width: '88%',
     aspectRatio: 1,

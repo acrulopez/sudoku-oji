@@ -11,12 +11,16 @@ import { create } from 'zustand';
 import { boardFromPuzzle } from '../domain/board';
 import {
   applyAutoNotes,
+  applyEliminations,
   eraseCell,
   isSolved,
   placeValue,
   toggleNote,
 } from '../domain/engine';
 import { getPeers, isValidPlacement } from '../domain/rules';
+import { findHint } from '../domain/hints';
+import type { Hint } from '../domain/hints';
+import type { EngineResult } from '../domain/engine';
 import {
   canUndo,
   createHistory,
@@ -44,6 +48,12 @@ interface GameState {
   fastMode: boolean;
   mistakes: number;
   elapsed: number;
+  /** Active Smart Hint walkthrough; null when the hint sheet is closed. */
+  hint: Hint | null;
+  /** Current step index within the active hint walkthrough. */
+  hintStep: number;
+  /** How many hints the player has opened this game (unlimited; informational). */
+  hintsUsed: number;
   /** Transient signal: a rejected (illegal) pencil note. `nonce` bumps each
    *  attempt so the UI re-triggers its flicker even for the same digit. */
   invalidFlash: { digit: Digit; nonce: number } | null;
@@ -67,6 +77,13 @@ interface GameState {
   togglePencil: () => void;
   toggleFastMode: () => void;
 
+  // smart hint
+  requestHint: () => void;
+  nextHintStep: () => void;
+  prevHintStep: () => void;
+  applyHint: () => void;
+  closeHint: () => void;
+
   // timer
   tick: () => void;
   setPaused: (paused: boolean) => void;
@@ -88,6 +105,7 @@ function persist(get: () => GameState) {
       history: s.history,
       elapsed: s.elapsed,
       mistakes: s.mistakes,
+      hintsUsed: s.hintsUsed,
     }),
   );
 }
@@ -104,6 +122,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   fastMode: false,
   mistakes: 0,
   elapsed: 0,
+  hint: null,
+  hintStep: 0,
+  hintsUsed: 0,
   invalidFlash: null,
   flashCells: null,
 
@@ -124,6 +145,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       fastMode: useSettingsStore.getState().fastModeDefault,
       mistakes: 0,
       elapsed: 0,
+      hint: null,
+      hintStep: 0,
+      hintsUsed: 0,
     });
     emit({ type: 'game_started', difficulty, puzzleId: puzzle.id, at: Date.now() });
     persist(get);
@@ -142,6 +166,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       fastMode: useSettingsStore.getState().fastModeDefault,
       mistakes: 0,
       elapsed: 0,
+      hint: null,
+      hintStep: 0,
+      hintsUsed: 0,
       invalidFlash: null,
       flashCells: null,
     });
@@ -175,6 +202,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       fastMode: useSettingsStore.getState().fastModeDefault,
       mistakes: snap.mistakes,
       elapsed: snap.elapsed,
+      hint: null,
+      hintStep: 0,
+      hintsUsed: snap.hintsUsed,
     });
     return true;
   },
@@ -231,6 +261,40 @@ export const useGameStore = create<GameState>((set, get) => ({
   toggleFastMode: () =>
     set((s) => ({ fastMode: !s.fastMode, selectedDigit: null })),
 
+  requestHint: () => {
+    const hint = findHint(get().board);
+    if (!hint) return; // button is disabled when no hint exists; guard anyway
+    set((s) => ({ hint, hintStep: 0, hintsUsed: s.hintsUsed + 1 }));
+    emit({ type: 'hint_used', at: Date.now() });
+    persist(get);
+  },
+
+  nextHintStep: () =>
+    set((s) =>
+      s.hint ? { hintStep: Math.min(s.hintStep + 1, s.hint.steps.length - 1) } : s,
+    ),
+
+  prevHintStep: () => set((s) => ({ hintStep: Math.max(s.hintStep - 1, 0) })),
+
+  closeHint: () => set({ hint: null, hintStep: 0 }),
+
+  applyHint: () => {
+    const { hint, board } = get();
+    if (!hint) return;
+    const res: EngineResult | null =
+      hint.action.kind === 'place'
+        ? placeValue(
+            board,
+            hint.action.placements![0].index,
+            hint.action.placements![0].digit,
+            true,
+          )
+        : applyEliminations(board, hint.action.eliminations ?? []);
+
+    if (res) commitMove(set, get, res);
+    set({ hint: null, hintStep: 0 });
+  },
+
   tick: () =>
     set((s) => (s.status === 'playing' ? { elapsed: s.elapsed + 1 } : s)),
 
@@ -240,6 +304,37 @@ export const useGameStore = create<GameState>((set, get) => ({
       return { status: paused ? 'paused' : 'playing' };
     }),
 }));
+
+/**
+ * Push an engine result onto the board + history, run the solved-check, emit
+ * analytics and persist. Shared by Smart Hint's Apply (placements never count
+ * as mistakes, since the hint always plays a correct move).
+ */
+function commitMove(
+  set: (partial: Partial<GameState>) => void,
+  get: () => GameState,
+  res: EngineResult,
+) {
+  const { history, puzzle } = get();
+  let status: GameStatus = get().status;
+
+  if (puzzle?.solution && isSolved(res.board, puzzle.solution)) {
+    status = 'won';
+    emit({
+      type: 'game_completed',
+      difficulty: get().difficulty,
+      puzzleId: puzzle.id,
+      elapsed: get().elapsed,
+      mistakes: get().mistakes,
+      at: Date.now(),
+    });
+    getRepositories().games.clearGame();
+  }
+
+  set({ board: res.board, history: pushMove(history, res.move), status });
+  emit({ type: 'move_made', moveType: res.move.type, at: Date.now() });
+  if (status !== 'won') persist(get);
+}
 
 /** Shared logic for placing a value or note into a cell. */
 function applyDigit(

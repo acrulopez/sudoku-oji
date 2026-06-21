@@ -4,3 +4,4 @@ export * from './rules';
 export * from './candidates';
 export * from './engine';
 export * from './history';
+export * from './hints';

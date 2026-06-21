@@ -130,6 +130,36 @@ export function applyAutoNotes(board: Board): EngineResult | null {
   return { board: nextBoard, move: { type: 'autoNotes', before, after } };
 }
 
+/**
+ * Remove specific candidates from cells' pencil notes, as one batched, undoable
+ * move. Used by Smart Hint's elimination techniques (naked/pointing pair).
+ * Only digits actually penciled are removed; returns `null` if nothing changes.
+ */
+export function applyEliminations(
+  board: Board,
+  eliminations: { index: CellIndex; digit: Digit }[],
+): EngineResult | null {
+  // Group the digits to strip per cell, keeping only ones currently noted.
+  const perCell = new Map<CellIndex, Set<Digit>>();
+  for (const { index, digit } of eliminations) {
+    if (board[index].notes.has(digit)) {
+      (perCell.get(index) ?? perCell.set(index, new Set()).get(index)!).add(digit);
+    }
+  }
+  const indices = [...perCell.keys()];
+  if (indices.length === 0) return null;
+
+  const before = snapshot(board, indices);
+  const nextBoard = board.slice();
+  for (const index of indices) {
+    const notes = new Set(nextBoard[index].notes);
+    for (const d of perCell.get(index)!) notes.delete(d);
+    nextBoard[index] = { ...nextBoard[index], notes };
+  }
+  const after = snapshot(nextBoard, indices);
+  return { board: nextBoard, move: { type: 'note', before, after } };
+}
+
 /** Apply a move's "before" snapshots — used by the history/undo system. */
 export function applySnapshots(
   board: Board,

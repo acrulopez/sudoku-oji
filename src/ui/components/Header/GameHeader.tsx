@@ -9,8 +9,13 @@ interface Props {
   maxMistakes: number;
   elapsed: number;
   paused: boolean;
+  /** Hints opened this game (informational badge; hints are unlimited). */
+  hintsUsed: number;
+  /** False when no supported technique applies — the button is disabled. */
+  hintAvailable: boolean;
   onBack: () => void;
   onTogglePause: () => void;
+  onHint: () => void;
 }
 
 function formatTime(total: number): string {
@@ -33,8 +38,11 @@ export function GameHeader({
   maxMistakes,
   elapsed,
   paused,
+  hintsUsed,
+  hintAvailable,
   onBack,
   onTogglePause,
+  onHint,
 }: Props) {
   const theme = useTheme();
   const c = theme.colors;
@@ -48,6 +56,26 @@ export function GameHeader({
           accessibilityLabel="Back to menu"
         >
           <Text style={[styles.back, { color: c.text }]}>←</Text>
+        </Pressable>
+        <Pressable
+          onPress={onHint}
+          disabled={!hintAvailable}
+          hitSlop={12}
+          style={styles.hint}
+          accessibilityRole="button"
+          accessibilityLabel="Smart hint"
+          accessibilityHint="Explain the next move step by step"
+          accessibilityState={{ disabled: !hintAvailable }}
+        >
+          <Text style={[styles.hintIcon, { opacity: hintAvailable ? 1 : 0.35 }]}>💡</Text>
+          <Text style={[styles.hintLabel, { color: hintAvailable ? c.primary : c.textMuted }]}>
+            Hint
+          </Text>
+          {hintsUsed > 0 && (
+            <View style={[styles.hintBadge, { backgroundColor: c.primary }]}>
+              <Text style={styles.hintBadgeText}>{hintsUsed}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
       <View style={styles.statsRow}>
@@ -82,4 +110,16 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   stat: { fontSize: 15 },
   timer: { flexDirection: 'row', alignItems: 'center' },
+  hint: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  hintIcon: { fontSize: 18 },
+  hintLabel: { fontSize: 15, fontWeight: '600' },
+  hintBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 });
