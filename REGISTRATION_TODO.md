@@ -7,21 +7,21 @@ store-console UI work, so it must be done by you. See the full plan at
 
 ## 1. Accounts (start early — verification can take days)
 
-- [ ] **Apple Developer Program** — enroll as **Individual** ($99/yr):
+- [X] **Apple Developer Program** — enroll as **Individual** ($99/yr):
       https://developer.apple.com/programs/
 - [ ] **Google Play Console** — register ($25 one-time, identity verification required):
       https://play.google.com/console
-- [ ] **Expo account** (free): https://expo.dev
-- [ ] Install CLI: `npm i -g eas-cli` then `eas login`
+- [X] **Expo account** (free): https://expo.dev
+- [X] Install CLI: `npm i -g eas-cli` then `eas login`
 
 ## 2. Link project to EAS
 
-- [ ] Run `eas init` in the repo (writes `owner` + `extra.eas.projectId` into `app.json`)
+- [X] Run `eas init` in the repo (writes `owner` + `extra.eas.projectId` into `app.json`)
 
 ## 3. Fill in the `eas.json` placeholders
 
 In `submit.production`:
-- [ ] `ios.appleId` — your Apple account email
+- [X] `ios.appleId` — your Apple account email
 - [ ] `ios.appleTeamId` — from https://developer.apple.com/account (Membership)
 - [ ] `ios.ascAppId` — App Store Connect app's Apple ID (after creating the app record)
 - [ ] `android.serviceAccountKeyPath` — drop the Google Play service-account JSON at
@@ -33,7 +33,7 @@ In `submit.production`:
 
 - [ ] Decide final **store display name** (currently "Sudoku" — generic/likely taken).
       Update `expo.name` in `app.json` if changed (bundle id stays the same).
-- [ ] Make this repo **public** and use the privacy policy URL:
+- [X] Make this repo **public** and use the privacy policy URL:
       `https://github.com/<user>/sudoku-app/blob/main/PRIVACY.md`
       (or enable GitHub Pages for a nicer page). Paste it into both consoles.
 - [ ] Support URL / contact email for App Store Connect.

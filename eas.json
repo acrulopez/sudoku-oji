@@ -24,7 +24,7 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "TODO_apple_account_email",
+        "appleId": "acrulopez@gmail.com",
         "ascAppId": "TODO_app_store_connect_app_id",
         "appleTeamId": "TODO_apple_team_id"
       },

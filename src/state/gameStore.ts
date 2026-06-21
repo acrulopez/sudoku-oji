@@ -67,6 +67,9 @@ interface GameState {
   restartGame: () => void;
   resumeSavedGame: () => boolean;
   hasSavedGame: () => boolean;
+  /** Lightweight peek at the saved game for the home screen's Continue row,
+   *  without resuming it. Null when there is no saved game. */
+  savedGameInfo: () => { difficulty: Difficulty; elapsed: number } | null;
 
   // interaction
   selectCell: (index: CellIndex) => void;
@@ -177,6 +180,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   hasSavedGame: () => getRepositories().games.loadGame() !== undefined,
+
+  savedGameInfo: () => {
+    const saved = getRepositories().games.loadGame();
+    if (!saved) return null;
+    return { difficulty: saved.difficulty, elapsed: saved.elapsed };
+  },
 
   resumeSavedGame: () => {
     const saved = getRepositories().games.loadGame();

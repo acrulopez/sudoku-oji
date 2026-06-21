@@ -102,11 +102,6 @@ function CellComponent({
     color: interpolateColor(flash.value, [0, 1], [valueColor, c.error]),
   }));
 
-  // Non-color error cue: a corner flag legible without hue and without motion,
-  // so the mistake survives color-blindness and Reduce Motion. (Accessibility
-  // floor — see PRODUCT.md.)
-  const accentSquare = fastMode ? c.primary : undefined;
-
   const a11yLabel = buildLabel(r, col, cell, mistake);
 
   return (
@@ -142,26 +137,28 @@ function CellComponent({
             // Smart Hint candidate-level emphasis (only set during a hint).
             const struck = has && !!annotation?.strikeNotes?.includes(d);
             const highlit = has && !!annotation?.highlightNotes?.includes(d);
+            // Fast Mode's active note and a hint's highlighted candidate both
+            // read as a blue mini-box with a white digit (struck/eliminated notes
+            // keep their red strike-through instead).
+            const badge = ((fastMode && activeNote) || highlit) && !struck;
             return (
               <View key={d} style={styles.noteSlot}>
-                {fastMode && activeNote ? (
-                  <View style={[styles.noteBadge, { backgroundColor: accentSquare }]}>
+                {badge ? (
+                  <View style={[styles.noteBadge, { backgroundColor: c.primary }]}>
                     <Text style={styles.noteBadgeText}>{d}</Text>
                   </View>
                 ) : (
                   <Text
                     style={[
                       styles.note,
-                      (activeNote || highlit) && styles.noteActive,
+                      activeNote && styles.noteActive,
                       struck && styles.noteStruck,
                       {
                         color: struck
                           ? c.error
-                          : highlit || activeNote
-                            ? c.primary
-                            : selected
-                              ? 'rgba(255,255,255,0.85)'
-                              : c.note,
+                          : selected || annotation?.tint === 'focus'
+                            ? 'rgba(255,255,255,0.85)'
+                            : c.note,
                         opacity: has ? 1 : 0,
                       },
                     ]}

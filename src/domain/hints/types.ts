@@ -24,8 +24,19 @@ export type TechniqueId =
   | 'jellyfish'
   | 'xy_wing'
   | 'xyz_wing'
+  | 'w_wing'
+  | 'skyscraper'
+  | 'two_string_kite'
+  | 'remote_pair'
+  | 'empty_rectangle'
   | 'unique_rectangle'
-  | 'simple_coloring';
+  | 'unique_rectangle_2'
+  | 'unique_rectangle_4'
+  | 'bug1'
+  | 'simple_coloring'
+  | 'aic'
+  | 'als_xz'
+  | 'brute_force';
 
 /** A run of narration text; `emphasis` runs are rendered in the accent color. */
 export interface TextSegment {
@@ -52,9 +63,24 @@ export interface CellAnnotation {
   strikeNotes?: Digit[];
 }
 
+/**
+ * A directed link between two chain candidates, drawn as an arrow on the board.
+ * `strong` links are conjugate ("if not A then B") — drawn solid; weak links
+ * ("not both A and B") are drawn dashed. Each endpoint is a candidate node: a
+ * cell plus the digit within it that the chain reasons about.
+ */
+export interface ChainLink {
+  from: { index: CellIndex; digit: Digit };
+  to: { index: CellIndex; digit: Digit };
+  strong: boolean;
+}
+
 export interface HintStep {
   text: TextSegment[];
   annotations: Record<CellIndex, CellAnnotation>;
+  /** Chain arrows to draw over the board — present only for chain techniques
+   *  (X-Chain/AIC, Remote Pair, Simple Coloring). */
+  links?: ChainLink[];
 }
 
 /**

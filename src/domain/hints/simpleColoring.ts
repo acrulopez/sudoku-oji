@@ -11,7 +11,7 @@ import { getPeers } from '../rules';
 import { DIGITS } from '../types';
 import type { Board, CellIndex, Digit } from '../types';
 import { ALL_UNITS } from './units';
-import type { Hint, CellAnnotation } from './types';
+import type { Hint, CellAnnotation, ChainLink } from './types';
 
 export function detectSimpleColoring(
   board: Board,
@@ -39,6 +39,7 @@ export function detectSimpleColoring(
 
       // 2-color the connected component.
       const color = new Map<CellIndex, 0 | 1>([[start, 0]]);
+      const parent = new Map<CellIndex, CellIndex>();
       visited.add(start);
       const queue = [start];
       const comp = [start];
@@ -47,6 +48,7 @@ export function detectSimpleColoring(
         for (const v of adj.get(u)!) {
           if (!color.has(v)) {
             color.set(v, (color.get(u)! ^ 1) as 0 | 1);
+            parent.set(v, u);
             visited.add(v);
             comp.push(v);
             queue.push(v);
@@ -54,6 +56,13 @@ export function detectSimpleColoring(
         }
       }
       if (comp.length < 2) continue;
+
+      // Arrows trace the strong-link chain along its spanning tree.
+      const links: ChainLink[] = [...parent].map(([child, par]) => ({
+        from: { index: par, digit },
+        to: { index: child, digit },
+        strong: true,
+      }));
 
       const group0 = comp.filter((c) => color.get(c) === 0);
       const group1 = comp.filter((c) => color.get(c) === 1);
@@ -65,7 +74,7 @@ export function detectSimpleColoring(
             .filter((c) => board[c].notes.has(digit))
             .map((c) => ({ index: c, digit }));
           if (elim.length) {
-            return buildHint('wrap', digit, group0, group1, elim);
+            return buildHint('wrap', digit, group0, group1, elim, links);
           }
         }
       }
@@ -85,7 +94,7 @@ export function detectSimpleColoring(
         if (sees0 && sees1 && board[t].notes.has(digit)) elim.push({ index: t, digit });
       }
       if (elim.length) {
-        return buildHint('trap', digit, group0, group1, elim);
+        return buildHint('trap', digit, group0, group1, elim, links);
       }
     }
   }
@@ -107,6 +116,7 @@ function buildHint(
   group0: CellIndex[],
   group1: CellIndex[],
   eliminations: { index: CellIndex; digit: Digit }[],
+  links: ChainLink[],
 ): Hint {
   const intro: Record<CellIndex, CellAnnotation> = {};
   for (const c of group0) intro[c] = { tint: 'unit', highlightNotes: [digit] };
@@ -145,8 +155,9 @@ function buildHint(
           { text: '.' },
         ],
         annotations: intro,
+        links,
       },
-      { text: revealText, annotations: reveal },
+      { text: revealText, annotations: reveal, links },
     ],
     action: { kind: 'eliminate', eliminations },
   };

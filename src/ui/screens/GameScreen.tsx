@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { canUndo as historyCanUndo } from '../../domain/history';
-import { findHint } from '../../domain/hints';
 import { useGameStore } from '../../state/gameStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { computeMistakes, remainingCounts } from '../../state/selectors';
@@ -34,10 +33,11 @@ export function GameScreen() {
     [s.board, s.puzzle],
   );
 
-  // Whether a supported technique applies right now — drives the Hint button's
-  // enabled state. Recomputed per move; findHint is cheap.
+  // The Hint button is enabled whenever the game is in progress and has empty
+  // cells: the engine always finds a next step (down to a validated last-resort
+  // placement), so there's no need to run the full solver on every move.
   const hintAvailable = useMemo(
-    () => s.status === 'playing' && findHint(s.board) !== null,
+    () => s.status === 'playing' && s.board.some((c) => c.value === null),
     [s.board, s.status],
   );
 
@@ -117,6 +117,7 @@ export function GameScreen() {
             flashCells={s.flashCells}
             reduceMotion={reduceMotion}
             hintAnnotations={s.hint ? s.hint.steps[s.hintStep].annotations : undefined}
+            chainLinks={s.hint ? s.hint.steps[s.hintStep].links : undefined}
             onCellPress={s.selectCell}
           />
         )}

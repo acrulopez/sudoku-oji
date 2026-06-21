@@ -20,8 +20,19 @@ import { detectClaiming } from './claiming';
 import { detectFish } from './fish';
 import { detectXYWing } from './xyWing';
 import { detectXYZWing } from './xyzWing';
+import { detectWWing } from './wWing';
+import { detectSkyscraper } from './skyscraper';
+import { detectTwoStringKite } from './twoStringKite';
+import { detectRemotePair } from './remotePair';
 import { detectUniqueRectangle } from './uniqueRectangle';
+import { detectUniqueRectangleType2 } from './uniqueRectangleType2';
+import { detectUniqueRectangleType4 } from './uniqueRectangleType4';
+import { detectEmptyRectangle } from './emptyRectangle';
+import { detectBug1 } from './bug1';
 import { detectSimpleColoring } from './simpleColoring';
+import { detectAlsXz } from './alsXz';
+import { detectAic } from './aic';
+import { solveBoard, bruteForceHint } from './bruteForce';
 import type { Hint, HintAction } from './types';
 
 type Detector = (board: Board, candidates: Map<CellIndex, Set<Digit>>) => Hint | null;
@@ -40,20 +51,40 @@ const DETECTORS: Detector[] = [
   (b, c) => detectNakedSubset(b, c, 4), // naked quad
   (b, c) => detectHiddenSubset(b, c, 4), // hidden quad
   (b, c) => detectFish(b, c, 2), // X-Wing
+  detectSkyscraper,
+  detectTwoStringKite,
+  detectEmptyRectangle,
   detectXYWing,
   detectXYZWing,
+  detectWWing,
   (b, c) => detectFish(b, c, 3), // Swordfish
   (b, c) => detectFish(b, c, 4), // Jellyfish
   detectUniqueRectangle,
+  detectUniqueRectangleType2,
+  detectUniqueRectangleType4,
+  detectRemotePair,
+  detectBug1,
   detectSimpleColoring,
+  detectAic, // X-Chain / XY-Chain / Nice Loops
+  detectAlsXz,
 ];
 
 export function findHint(board: Board): Hint | null {
   const candidates = allCandidates(board);
+  // The unique solution doubles as a soundness check: a placement must match it
+  // and an elimination must never remove a solution digit. This guards against
+  // any detector bug — an unsound hint is skipped rather than shown.
+  const solution = solveBoard(board);
+
   for (const detect of DETECTORS) {
     const hint = detect(board, candidates);
-    if (hint && actionChangesBoard(board, hint.action)) return hint;
+    if (!hint || !actionChangesBoard(board, hint.action)) continue;
+    if (solution && !isHintSound(hint, solution)) continue;
+    return hint;
   }
+
+  // Nothing learnable applies — fall back to a guaranteed (validated) placement.
+  if (solution) return bruteForceHint(board, solution);
   return null;
 }
 
@@ -67,4 +98,12 @@ function actionChangesBoard(board: Board, action: HintAction): boolean {
   return (action.eliminations ?? []).some(
     ({ index, digit }) => board[index].notes.has(digit),
   );
+}
+
+/** A placement must match the solution; an elimination must not drop a solution digit. */
+function isHintSound(hint: Hint, solution: Digit[]): boolean {
+  if (hint.action.kind === 'place') {
+    return (hint.action.placements ?? []).every((p) => solution[p.index] === p.digit);
+  }
+  return (hint.action.eliminations ?? []).every((e) => solution[e.index] !== e.digit);
 }

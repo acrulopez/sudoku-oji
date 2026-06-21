@@ -1,6 +1,6 @@
-import { createBoard, indexOf } from '../../board';
+import { createBoard, indexOf, boardToString } from '../../board';
 import { allCandidates } from '../../candidates';
-import { applyEliminations, toggleNote } from '../../engine';
+import { applyEliminations, placeValue, toggleNote } from '../../engine';
 import { createHistory, pushMove, undo } from '../../history';
 import type { Board, Digit } from '../../types';
 import { detectNakedSingle } from '../nakedSingle';
@@ -13,7 +13,17 @@ import { detectFish } from '../fish';
 import { detectXYWing } from '../xyWing';
 import { detectXYZWing } from '../xyzWing';
 import { detectUniqueRectangle } from '../uniqueRectangle';
+import { detectUniqueRectangleType2 } from '../uniqueRectangleType2';
 import { detectSimpleColoring } from '../simpleColoring';
+import { detectWWing } from '../wWing';
+import { detectSkyscraper } from '../skyscraper';
+import { detectTwoStringKite } from '../twoStringKite';
+import { detectRemotePair } from '../remotePair';
+import { detectBug1 } from '../bug1';
+import { detectEmptyRectangle } from '../emptyRectangle';
+import { detectUniqueRectangleType4 } from '../uniqueRectangleType4';
+import { detectAic } from '../aic';
+import { solveBoard } from '../bruteForce';
 import { findHint } from '../findHint';
 
 /** Build an 81-char givens string from an index -> digit-char map. */
@@ -263,8 +273,10 @@ describe('findHint ordering', () => {
     expect(findHint(board)?.technique).toBe('naked_single');
   });
 
-  it('returns null when no supported technique applies', () => {
-    expect(findHint(createBoard(EMPTY))).toBeNull();
+  it('returns null only when the board is already solved', () => {
+    const solved =
+      '534678912672195348198342567859761423426853791713924856961537284287419635345286179';
+    expect(findHint(createBoard(solved))).toBeNull();
   });
 });
 
@@ -393,10 +405,192 @@ describe('detectSimpleColoring', () => {
     expect(hint?.technique).toBe('simple_coloring');
     const idx = hint!.action.eliminations!.map((e) => e.index).sort((a, b) => a - b);
     expect(idx).toEqual([indexOf(0, 0), indexOf(2, 1)].sort((a, b) => a - b));
+
+    // Strong-link chain is exposed as solid arrows on the digit.
+    const links = hint!.steps[0].links!;
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every((l) => l.strong && l.from.digit === 7 && l.to.digit === 7)).toBe(true);
   });
 
   it('does not fire on an empty board', () => {
     const empty = createBoard(EMPTY);
     expect(detectSimpleColoring(empty, cands(empty))).toBeNull();
+  });
+});
+
+describe('detectWWing', () => {
+  it('removes the shared digit from cells seeing both pair cells', () => {
+    // {1,2} at (0,0) and (8,8) (not peers), linked by a strong link on 1 in
+    // column 4 → 2 is removed from (0,8), which sees both pair cells.
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [1, 2],
+      [indexOf(8, 8)]: [1, 2],
+      [indexOf(0, 4)]: [1],
+      [indexOf(8, 4)]: [1],
+      [indexOf(0, 8)]: [2],
+    });
+    const hint = detectWWing(board, map);
+    expect(hint?.technique).toBe('w_wing');
+    expect(hint?.action.eliminations).toContainEqual({ index: indexOf(0, 8), digit: 2 });
+  });
+});
+
+describe('detectSkyscraper', () => {
+  it('finds two row links sharing a base and eliminates from cells seeing both roofs', () => {
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [5], [indexOf(0, 1)]: [5], // row 0 link, base col 0
+      [indexOf(1, 0)]: [5], [indexOf(1, 2)]: [5], // row 1 link, base col 0
+      [indexOf(2, 1)]: [5], // sees both roofs (0,1) and (1,2)
+    });
+    const hint = detectSkyscraper(board, map);
+    expect(hint?.technique).toBe('skyscraper');
+    expect(hint?.action.eliminations).toContainEqual({ index: indexOf(2, 1), digit: 5 });
+  });
+});
+
+describe('detectTwoStringKite', () => {
+  it('links a row and column conjugate pair through a box and eliminates at the far intersection', () => {
+    const { board, map } = scenario({
+      [indexOf(0, 1)]: [6], [indexOf(0, 7)]: [6], // row 0 link
+      [indexOf(1, 2)]: [6], [indexOf(6, 2)]: [6], // col 2 link; (0,1)&(1,2) share box 0
+      [indexOf(6, 7)]: [6], // sees (0,7) via col 7 and (6,2) via row 6
+    });
+    const hint = detectTwoStringKite(board, map);
+    expect(hint?.technique).toBe('two_string_kite');
+    expect(hint?.action.eliminations).toContainEqual({ index: indexOf(6, 7), digit: 6 });
+  });
+});
+
+describe('detectRemotePair', () => {
+  it('eliminates both pair digits from a cell seeing opposite ends of the chain', () => {
+    // {1,2} chain (0,0)-(0,3)-(3,3)-(3,6); (3,0) holds {1,7} and sees both
+    // shades → 1 is removed.
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [1, 2], [indexOf(0, 3)]: [1, 2],
+      [indexOf(3, 3)]: [1, 2], [indexOf(3, 6)]: [1, 2],
+      [indexOf(3, 0)]: [1, 7],
+    });
+    const hint = detectRemotePair(board, map);
+    expect(hint?.technique).toBe('remote_pair');
+    expect(hint?.action.eliminations).toContainEqual({ index: indexOf(3, 0), digit: 1 });
+
+    // The chain is exposed as arrows whose endpoints alternate between the pair.
+    const links = hint!.steps[0].links!;
+    expect(links.length).toBeGreaterThan(0);
+    for (const l of links) {
+      expect([1, 2]).toContain(l.from.digit);
+      expect([1, 2]).toContain(l.to.digit);
+      expect(l.from.digit).not.toBe(l.to.digit);
+    }
+  });
+});
+
+describe('detectUniqueRectangleType2', () => {
+  it('removes the extra digit from cells seeing both roof cells', () => {
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [1, 2], [indexOf(0, 3)]: [1, 2], // floor
+      [indexOf(1, 0)]: [1, 2, 5], [indexOf(1, 3)]: [1, 2, 5], // roof, extra 5
+      [indexOf(1, 6)]: [5], // sees both roof cells along row 1
+    });
+    const hint = detectUniqueRectangleType2(board, map);
+    expect(hint?.technique).toBe('unique_rectangle_2');
+    expect(hint?.action.eliminations).toContainEqual({ index: indexOf(1, 6), digit: 5 });
+  });
+});
+
+describe('detectBug1', () => {
+  it('places the digit that appears three times when only one cell is trivalue', () => {
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [1, 2, 3],
+      [indexOf(0, 1)]: [1, 2],
+      [indexOf(0, 2)]: [1, 3],
+    });
+    const hint = detectBug1(board, map);
+    expect(hint?.technique).toBe('bug1');
+    expect(hint?.action.placements).toEqual([{ index: indexOf(0, 0), digit: 1 }]);
+  });
+});
+
+describe('detectEmptyRectangle', () => {
+  it('uses a box L plus a conjugate pair to eliminate down the hinge column', () => {
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [4], [indexOf(0, 1)]: [4], [indexOf(1, 0)]: [4], // box 0 L, hinge (0,0)
+      [indexOf(0, 5)]: [4], [indexOf(3, 5)]: [4], // conjugate pair in column 5 (hits hinge row)
+      [indexOf(3, 0)]: [4], // eliminated: hinge column, conjugate's row
+    });
+    const hint = detectEmptyRectangle(board, map);
+    expect(hint?.technique).toBe('empty_rectangle');
+    expect(hint?.action.eliminations).toContainEqual({ index: indexOf(3, 0), digit: 4 });
+  });
+});
+
+describe('detectUniqueRectangleType4', () => {
+  it('removes the non-conjugate pair digit from both roof cells', () => {
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [1, 2], [indexOf(0, 3)]: [1, 2], // floor
+      [indexOf(1, 0)]: [1, 2, 5], [indexOf(1, 3)]: [1, 2, 5], // roof; 1 is conjugate in row 1
+    });
+    const hint = detectUniqueRectangleType4(board, map);
+    expect(hint?.technique).toBe('unique_rectangle_4');
+    const elims = hint!.action.eliminations!;
+    expect(elims.every((e) => e.digit === 1 || e.digit === 2)).toBe(true);
+    expect(
+      elims.every((e) => e.index === indexOf(1, 0) || e.index === indexOf(1, 3)),
+    ).toBe(true);
+  });
+});
+
+describe('detectAic', () => {
+  it('finds an alternating inference chain and produces eliminations', () => {
+    const { board, map } = scenario({
+      [indexOf(0, 0)]: [5], [indexOf(0, 1)]: [5],
+      [indexOf(1, 0)]: [5], [indexOf(1, 2)]: [5],
+      [indexOf(2, 1)]: [5],
+    });
+    const hint = detectAic(board, map);
+    expect(hint?.technique).toBe('aic');
+    expect((hint?.action.eliminations ?? []).length).toBeGreaterThan(0);
+
+    // The chain is exposed as arrows that alternate strong/weak, starting strong.
+    const links = hint!.steps[0].links!;
+    expect(links.length).toBeGreaterThan(0);
+    links.forEach((l, i) => expect(l.strong).toBe(i % 2 === 0));
+    // Every cell touched by a link is highlighted in the intro step.
+    const ann = hint!.steps[0].annotations;
+    for (const l of links) {
+      expect(ann[l.from.index]?.highlightNotes).toContain(l.from.digit);
+      expect(ann[l.to.index]?.highlightNotes).toContain(l.to.digit);
+    }
+  });
+
+  it('does not fire on an empty board', () => {
+    const empty = createBoard(EMPTY);
+    expect(detectAic(empty, cands(empty))).toBeNull();
+  });
+});
+
+describe('solveBoard + findHint completeness', () => {
+  const PUZZLE =
+    '530070000600195000098000060800060003400803001700020006060000280000419005000080079';
+  const SOLUTION =
+    '534678912672195348198342567859761423426853791713924856961537284287419635345286179';
+
+  it('solves a real puzzle uniquely', () => {
+    expect(solveBoard(createBoard(PUZZLE))!.join('')).toBe(SOLUTION);
+  });
+
+  it('findHint always returns a sound step that drives the puzzle to its solution', () => {
+    let board = createBoard(PUZZLE);
+    let guard = 0;
+    while (board.some((c) => c.value === null) && guard++ < 200) {
+      const hint = findHint(board);
+      expect(hint).not.toBeNull();
+      // Without penciled notes every hint is a placement (eliminations are gated).
+      expect(hint!.action.kind).toBe('place');
+      const { index, digit } = hint!.action.placements![0];
+      expect(String(SOLUTION[index])).toBe(String(digit)); // sound
+      board = placeValue(board, index, digit)!.board;
+    }
+    expect(boardToString(board)).toBe(SOLUTION);
   });
 });

@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 import { SIDE } from '../../../domain/board';
 import type { Board as BoardModel, CellIndex, Digit } from '../../../domain/types';
-import type { CellAnnotation } from '../../../domain/hints';
+import type { CellAnnotation, ChainLink } from '../../../domain/hints';
 import { computeHighlights } from '../../../state/selectors';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Cell } from './Cell';
+import { ChainOverlay } from './ChainOverlay';
 
 interface Props {
   board: BoardModel;
@@ -22,6 +24,8 @@ interface Props {
   /** Active Smart Hint annotations (cell index -> tint/×/ghost). When present,
    *  normal selection/peer tints are suppressed so the hint reads cleanly. */
   hintAnnotations?: Record<CellIndex, CellAnnotation>;
+  /** Chain arrows for the active Smart Hint step, drawn over the grid. */
+  chainLinks?: ChainLink[];
   onCellPress: (index: CellIndex) => void;
 }
 
@@ -34,6 +38,7 @@ export function Board({
   flashCells,
   reduceMotion,
   hintAnnotations,
+  chainLinks,
   onCellPress,
 }: Props) {
   const theme = useTheme();
@@ -42,9 +47,14 @@ export function Board({
     [board, selectedIndex, activeValue],
   );
   const hinting = hintAnnotations !== undefined;
+  const [boardSize, setBoardSize] = useState(0);
+  const onLayout = (e: LayoutChangeEvent) => setBoardSize(e.nativeEvent.layout.width);
 
   return (
-    <View style={[styles.grid, { borderColor: theme.colors.gridLineBold }]}>
+    <View
+      style={[styles.grid, { borderColor: theme.colors.gridLineBold }]}
+      onLayout={onLayout}
+    >
       {Array.from({ length: SIDE }).map((_, row) => (
         <View key={row} style={styles.row}>
           {Array.from({ length: SIDE }).map((_, col) => {
@@ -71,6 +81,9 @@ export function Board({
           })}
         </View>
       ))}
+      {chainLinks && chainLinks.length > 0 && boardSize > 0 && (
+        <ChainOverlay links={chainLinks} size={boardSize} color={theme.colors.error} />
+      )}
     </View>
   );
 }
