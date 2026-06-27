@@ -48,3 +48,5 @@ play-service-account.json
 # Personal / internal — contains Apple ID, team ID, internal publishing notes
 eas.json
 REGISTRATION_TODO.md
+
+icon.svg
